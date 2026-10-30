@@ -196,6 +196,7 @@ com.faculdade.authsystem
 │   ├── GlobalExceptionHandler.java  # @RestControllerAdvice
 │   └── ErrorCode.java               # enum
 └── security/
+    ├── UserDetailsServiceImpl.java         # carrega o usuário por e-mail
     ├── RestAuthenticationEntryPoint.java   # 401 em JSON
     └── RestAccessDeniedHandler.java        # 403 em JSON
 ```
@@ -499,7 +500,7 @@ classDiagram
 | Tema | Decisão |
 |---|---|
 | Hash de senha | `BCryptPasswordEncoder` (strength 10–12) |
-| Rotas | `/api/auth/register`, `/api/auth/login`, `/swagger-ui/**`, `/v3/api-docs/**` públicas; qualquer outra exige autenticação |
+| Rotas | `/api/auth/register`, `/api/auth/login`, `/swagger-ui/**`, `/swagger-ui.html`, `/v3/api-docs/**` públicas; qualquer outra exige autenticação |
 | Sessão | `SessionCreationPolicy.STATELESS` |
 | CSRF | Desabilitado (API stateless, sem cookies de sessão) |
 | Token | JWT HS256; segredo com no mínimo 256 bits vindo de variável de ambiente; expiração padrão 1 h |
@@ -537,7 +538,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-authdb}
       POSTGRES_USER: ${POSTGRES_USER:-auth_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -552,12 +553,10 @@ volumes:
   pgdata:
 ```
 
-### 9.3 Perfis Spring
-- `dev`: logs mais verbosos, Swagger habilitado.
-- `test`: Testcontainers.
-- `prod`: Swagger desabilitado, mensagens de erro sem detalhes internos (`server.error.include-*=never`).
+### 9.3 Execução local
+A aplicação roda apenas localmente, com uma única configuração (sem perfis de ambiente). Swagger fica sempre habilitado e os testes de integração sobem um PostgreSQL próprio via Testcontainers.
 
-`spring.jpa.hibernate.ddl-auto=validate` em todos os perfis: o esquema só muda por migração Flyway.
+`spring.jpa.hibernate.ddl-auto=validate`: o esquema só muda por migração Flyway.
 
 ---
 

@@ -18,7 +18,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface StrongPassword {
 
-    String message() default "A senha deve ter de 8 a 72 caracteres, com maiúscula, minúscula, número e símbolo.";
+    String message() default "A senha deve ter ao menos 8 caracteres, com maiúscula, minúscula, número e símbolo.";
 
     Class<?>[] groups() default {};
 
