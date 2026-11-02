@@ -1,27 +1,50 @@
 # AuthSystem
 
-Sistema simples de autenticação (cadastro e login) com Java 21, Spring Boot 3, Spring Security e PostgreSQL em Docker.
-A arquitetura completa está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+Sistema simples de autenticação (cadastro e login) com Java 25, Spring Boot 3, Spring Security e PostgreSQL em Docker, e frontend em React + TypeScript.
+
+| Documento | Conteúdo |
+|---|---|
+| [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Requisitos, arquitetura, contrato da API |
+| [docs/FRONTEND.md](docs/FRONTEND.md) | Desenho do frontend |
+| [docs/QUALIDADE.md](docs/QUALIDADE.md) | Processos da ISO/IEC 12207, rastreabilidade e verificação |
 
 ## Pré-requisitos
-- JDK 21
+- JDK 25
 - Maven 3.9+
+- Node.js 20+ (frontend)
 - Docker (para o PostgreSQL e para os testes de integração)
 
 ## Como rodar
 
-1. Crie o arquivo de ambiente e preencha os valores:
-   ```bash
-   cp .env.example .env
-   ```
-   Defina ao menos `POSTGRES_PASSWORD`, `DB_PASSWORD` (a mesma senha) e `JWT_SECRET` (mínimo 32 caracteres).
+Primeiro crie o arquivo de ambiente e preencha os valores:
+```bash
+cp .env.example .env
+```
+Defina ao menos `POSTGRES_PASSWORD`, `DB_PASSWORD` (a mesma senha) e `JWT_SECRET` (mínimo 32 caracteres).
 
-2. Suba o banco:
+### Opção A: tudo em Docker (só precisa do Docker)
+
+```bash
+docker compose up -d --build
+```
+
+| Serviço | Endereço |
+|---|---|
+| Frontend | `http://localhost:3000` |
+| API | `http://localhost:8080` (Swagger em `/swagger-ui.html`) |
+| PostgreSQL | `localhost:5432` |
+
+Para acompanhar os logs: `docker compose logs -f api`. Para parar: `docker compose down` (os dados ficam no volume; `down -v` apaga).
+Depois de alterar o código, rode de novo com `--build`.
+
+### Opção B: desenvolvimento local (JDK, Maven e Node)
+
+1. Suba só o banco:
    ```bash
-   docker compose up -d
+   docker compose up -d postgres
    ```
 
-3. Suba a API (o `.env` da raiz é lido automaticamente):
+2. Suba a API (o `.env` da raiz é lido automaticamente):
    ```bash
    cd backend
    mvn spring-boot:run
@@ -29,12 +52,21 @@ A arquitetura completa está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 
 A API fica em `http://localhost:8080` e o Swagger em `http://localhost:8080/swagger-ui.html`.
 
+3. Suba o frontend, em outro terminal:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+O frontend fica em `http://localhost:3000`, a origem já liberada no CORS da API. Para apontar para outra API, copie `frontend/.env.example` para `frontend/.env` e ajuste `VITE_API_URL`.
+
 ## Endpoints
 
 | Método | Rota | Descrição |
 |---|---|---|
 | POST | `/api/auth/register` | Cadastro (`nome`, `email`, `senha`, `confirmarSenha`) |
-| POST | `/api/auth/login` | Login (`email`, `senha`), devolve o token JWT |
+| POST | `/api/auth/login` | Login (`email`, `senha`), devolve o token JWT e a identificação do usuário (`usuario`) |
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/register -H "Content-Type: application/json" \
@@ -55,10 +87,20 @@ mvn test
 
 Os testes de integração usam Testcontainers e precisam do Docker em execução; sem ele, são ignorados.
 
-## API em container (opcional)
-
 ```bash
-docker build -t authsystem-api backend
-docker run --rm -p 8080:8080 --env-file .env \
-  -e DB_URL=jdbc:postgresql://host.docker.internal:5432/authdb authsystem-api
+cd frontend
+npm run lint        # análise estática (ESLint)
+npm run typecheck   # verificação de tipos (TypeScript)
+npm test            # testes (Vitest + Testing Library)
+npm run test:coverage
 ```
+
+O pipeline em [.github/workflows/ci.yml](.github/workflows/ci.yml) roda tudo isso a cada push e pull request.
+
+## Containers
+
+| Serviço | Imagem | Observação |
+|---|---|---|
+| `postgres` | `postgres:16-alpine` | Volume `pgdata` |
+| `api` | `backend/Dockerfile` (Maven → JRE 25, usuário não-root) | Conecta ao banco pelo nome do serviço (`postgres:5432`) |
+| `frontend` | `frontend/Dockerfile` (Node → Nginx) | `VITE_API_URL` é fixado no build; padrão `http://localhost:8080` |

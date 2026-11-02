@@ -1,0 +1,22 @@
+# Dependências
+node_modules/
+
+# Build e relatórios
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+npm-debug.log*
+
+# Variáveis de ambiente locais (o .env.example é versionado)
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.idea/
+.vscode/
+
+# SO
+.DS_Store
+Thumbs.db

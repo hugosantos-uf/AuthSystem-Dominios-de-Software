@@ -4,15 +4,15 @@
 |---|---|
 | Projeto | AuthSystem — sistema simples de autenticação |
 | Disciplina | Domínios de Software |
-| Versão | 1.0 (rascunho inicial) |
-| Escopo atual | Backend + Banco de dados |
+| Versão | 1.1 |
+| Escopo atual | Backend + Banco de dados + Frontend |
 
 ---
 
 ## 1. Introdução
 
 ### 1.1 Objetivo
-Definir a arquitetura e o desenho detalhado de componentes de uma aplicação Web de autenticação, composta por **backend (API REST)**, **banco de dados** e **frontend**. O detalhamento deste documento concentra-se no backend e no banco.
+Definir a arquitetura e o desenho detalhado de componentes de uma aplicação Web de autenticação, composta por **backend (API REST)**, **banco de dados** e **frontend**. O detalhamento deste documento concentra-se no backend e no banco; o frontend está descrito em [FRONTEND.md](FRONTEND.md). A conformidade com os processos da ISO/IEC 12207 está em [QUALIDADE.md](QUALIDADE.md).
 
 ### 1.2 Escopo
 O sistema expõe **apenas dois endpoints**:
@@ -26,7 +26,7 @@ O sistema expõe **apenas dois endpoints**:
 
 | Camada | Tecnologia | Justificativa |
 |---|---|---|
-| Linguagem | Java 21 (LTS) | Requisito do projeto |
+| Linguagem | Java 25 (LTS) | Requisito do projeto |
 | Framework | Spring Boot 3.x | Padrão de mercado, integração nativa com Spring Security |
 | Segurança | Spring Security 6 | Requisito do projeto; BCrypt, filtros, tratamento de erros de segurança |
 | Persistência | Spring Data JPA (Hibernate) | Reduz código repetitivo de acesso a dados |
@@ -37,6 +37,7 @@ O sistema expõe **apenas dois endpoints**:
 | Build | Maven | Convencional, simples |
 | Testes | JUnit 5, Mockito, Testcontainers | Unitários e integração com Postgres real |
 | Documentação da API | springdoc-openapi (Swagger UI) | Contrato navegável, útil para o frontend |
+| Frontend | React 19 + TypeScript + Vite | SPA simples, tipagem do contrato da API; ver [FRONTEND.md](FRONTEND.md) |
 
 ---
 
@@ -50,8 +51,11 @@ O sistema expõe **apenas dois endpoints**:
 | RF02 | O sistema deve rejeitar cadastro com e-mail já existente. |
 | RF03 | O sistema deve rejeitar cadastro cuja senha e confirmação sejam diferentes. |
 | RF04 | O sistema deve autenticar um usuário por e-mail e senha. |
-| RF05 | Em login bem-sucedido, o sistema deve devolver um token de acesso. |
+| RF05 | Em login bem-sucedido, o sistema deve devolver um token de acesso e a identificação do usuário (id, nome, e-mail). |
 | RF06 | Todas as falhas devem retornar uma resposta de erro padronizada e clara. |
+| RF07 | O frontend deve oferecer telas de cadastro e de login que consumam a API. |
+| RF08 | Após autenticar, o frontend deve exibir a identificação do usuário e permitir encerrar a sessão. |
+| RF09 | O frontend deve exibir as falhas de forma compreensível, por campo quando aplicável. |
 
 ### 2.2 Requisitos não funcionais
 
@@ -321,9 +325,16 @@ Prefixo base: `/api/auth`. Formato: `application/json`.
 {
   "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
   "tokenType": "Bearer",
-  "expiresIn": 3600
+  "expiresIn": 3600,
+  "usuario": {
+    "id": "3f0c5b0e-6a64-4b1e-9d52-2f1f0b6a9c11",
+    "nome": "Maria Silva",
+    "email": "maria@exemplo.com"
+  }
 }
 ```
+
+`usuario` é a identificação do usuário autenticado exigida pelo enunciado ("retorno de um objeto contendo a identificação do usuário"). Nunca inclui senha ou hash.
 
 | Status | Código de erro | Quando |
 |---|---|---|
@@ -567,6 +578,7 @@ A aplicação roda apenas localmente, com uma única configuração (sem perfis 
 | Unitário | `AuthServiceImpl` (e-mail duplicado, hash gerado, credenciais inválidas), validadores de senha | JUnit 5, Mockito |
 | Slice web | `AuthController` + `GlobalExceptionHandler`: status e corpo de cada erro | `@WebMvcTest`, MockMvc |
 | Integração | Fluxo completo cadastro → login contra Postgres real, UNIQUE em concorrência | `@SpringBootTest`, Testcontainers |
+| Frontend | Validações, cliente HTTP, sessão e fluxos de tela (API simulada) | Vitest, Testing Library |
 
 Casos mínimos: cadastro válido; senha ≠ confirmação; senha fraca; e-mail inválido; e-mail duplicado (inclusive variando maiúsculas); login válido; senha errada; e-mail inexistente (resposta idêntica à senha errada); JSON malformado; campos nulos.
 
@@ -583,6 +595,9 @@ Casos mínimos: cadastro válido; senha ≠ confirmação; senha fraca; e-mail i
 | ADR-05 | Campos de entrada em português (`nome`, `senha`, `confirmarSenha`) | Inglês | Alinhado ao enunciado; códigos de erro permanecem em inglês por serem identificadores técnicos |
 | ADR-06 | Erros com `code` estável + `message` legível | Apenas mensagem | Frontend trata por código; mensagem pode mudar/internacionalizar |
 | ADR-07 | Cadastro **não** loga o usuário automaticamente | Retornar token no cadastro | Mantém os dois endpoints com responsabilidade única |
+| ADR-08 | Login devolve também `usuario` (id, nome, e-mail) | Cliente decodificar o JWT | Atende ao enunciado; o cliente não depende do formato interno do token |
+| ADR-09 | Frontend SPA em React + TypeScript, sem biblioteca de rotas | Angular, Vue, React Router | Três telas apenas; tipagem estática do contrato; menos dependências |
+| ADR-10 | Sessão do frontend em `sessionStorage` | `localStorage`, cookie | Some ao fechar a aba; sem backend de sessão (RNF04) |
 
 ### Evoluções possíveis
 Rate limiting/bloqueio por tentativas, refresh token, verificação de e-mail, recuperação de senha, papéis (RBAC), endpoint `/me` protegido, observabilidade (Actuator, métricas), pipeline CI.
