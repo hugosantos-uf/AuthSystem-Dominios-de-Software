@@ -76,7 +76,7 @@ class AuthServiceImplTest {
     }
 
     @Test
-    void loginReturnsBearerToken() {
+    void loginReturnsBearerTokenAndUserIdentity() {
         User user = new User("Maria", "maria@exemplo.com", "$2a$hash");
         when(userRepository.findByEmail("maria@exemplo.com")).thenReturn(Optional.of(user));
         when(jwtService.generateToken(user)).thenReturn("token");
@@ -88,6 +88,8 @@ class AuthServiceImplTest {
         assertEquals("token", response.accessToken());
         assertEquals("Bearer", response.tokenType());
         assertEquals(3600L, response.expiresIn());
+        assertEquals("Maria", response.usuario().nome());
+        assertEquals("maria@exemplo.com", response.usuario().email());
     }
 
     @Test

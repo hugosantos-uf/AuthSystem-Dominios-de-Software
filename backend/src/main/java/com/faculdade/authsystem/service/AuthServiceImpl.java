@@ -57,7 +57,7 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException();
         }
         User user = userRepository.findByEmail(email).orElseThrow(InvalidCredentialsException::new);
-        return LoginResponse.bearer(jwtService.generateToken(user), jwtService.getExpirationSeconds());
+        return LoginResponse.bearer(jwtService.generateToken(user), jwtService.getExpirationSeconds(), user);
     }
 
     private String normalizeEmail(String email) {
