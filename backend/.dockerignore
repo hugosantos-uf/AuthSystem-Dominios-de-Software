@@ -1,0 +1,8 @@
+target
+.github
+.idea
+.vscode
+*.iml
+.env
+Dockerfile
+.dockerignore
