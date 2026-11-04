@@ -1,0 +1,25 @@
+# Build (Maven)
+target/
+*.class
+*.jar
+*.war
+*.log
+hs_err_pid*
+
+# Segredos
+.env
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+bin/
+out/
+
+# SO
+.DS_Store
+Thumbs.db

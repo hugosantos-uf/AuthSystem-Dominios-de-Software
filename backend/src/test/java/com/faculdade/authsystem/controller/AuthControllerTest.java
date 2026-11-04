@@ -118,8 +118,10 @@ class AuthControllerTest {
     }
 
     @Test
-    void loginReturns200WithToken() throws Exception {
-        when(authService.login(any())).thenReturn(LoginResponse.bearer("token", 3600));
+    void loginReturns200WithTokenAndUserIdentity() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(authService.login(any())).thenReturn(new LoginResponse("token", "Bearer", 3600,
+                new LoginResponse.UserIdentity(id, "Maria Silva", "maria@exemplo.com")));
 
         mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -127,7 +129,10 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("token"))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.expiresIn").value(3600));
+                .andExpect(jsonPath("$.expiresIn").value(3600))
+                .andExpect(jsonPath("$.usuario.id").value(id.toString()))
+                .andExpect(jsonPath("$.usuario.nome").value("Maria Silva"))
+                .andExpect(jsonPath("$.usuario.email").value("maria@exemplo.com"));
     }
 
     @Test
