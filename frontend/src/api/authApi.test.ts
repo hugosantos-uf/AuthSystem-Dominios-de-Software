@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { INVALID_CREDENTIALS, LOGIN_OK, mockFetchNetworkFailure, mockFetchResponse } from '../test/fetchMock';
+import { INVALID_CREDENTIALS, LOGIN_OK, UNAUTHORIZED, mockFetchNetworkFailure, mockFetchResponse } from '../test/fetchMock';
 import { ApiError, NETWORK_ERROR } from './ApiError';
-import { login, register } from './authApi';
+import { login, me, register } from './authApi';
 import { fieldErrorsFrom, messageFor } from './errorMessages';
 
 describe('authApi', () => {
@@ -40,11 +40,36 @@ describe('authApi', () => {
 
     await expect(login({ email: 'x@x.com', senha: 'y' })).rejects.toMatchObject({ status: 502, code: 'INTERNAL_ERROR' });
   });
+
+  it('CT-A08: me envia o token no cabeçalho Authorization e devolve a identidade', async () => {
+    const fetchSpy = mockFetchResponse(200, LOGIN_OK.usuario);
+
+    const identity = await me('token-jwt');
+
+    expect(identity).toEqual(LOGIN_OK.usuario);
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('http://localhost:8080/api/auth/me');
+    expect(init?.method).toBe('GET');
+    expect(init?.headers).toEqual({ Authorization: 'Bearer token-jwt' });
+    expect(init?.body).toBeUndefined();
+  });
+
+  it('CT-A09: token recusado pelo servidor vira ApiError 401 UNAUTHORIZED', async () => {
+    mockFetchResponse(401, UNAUTHORIZED);
+
+    await expect(me('token-expirado')).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' });
+  });
 });
 
 describe('errorMessages', () => {
   it('CT-A05: mensagem escolhida pelo código, não pelo texto do servidor', () => {
     expect(messageFor(new ApiError(409, 'EMAIL_ALREADY_EXISTS', 'qualquer texto'))).toBe('Este e-mail já está cadastrado.');
+  });
+
+  it('CT-A10: sessão recusada pelo servidor tem mensagem própria', () => {
+    expect(messageFor(new ApiError(401, 'UNAUTHORIZED', 'Autenticação necessária.'))).toBe(
+      'Sua sessão expirou. Entre novamente.',
+    );
   });
 
   it('CT-A06: erro interno inclui o traceId', () => {

@@ -67,6 +67,7 @@ O frontend fica em `http://localhost:3000`, a origem já liberada no CORS da API
 |---|---|---|
 | POST | `/api/auth/register` | Cadastro (`nome`, `email`, `senha`, `confirmarSenha`) |
 | POST | `/api/auth/login` | Login (`email`, `senha`), devolve o token JWT e a identificação do usuário (`usuario`) |
+| GET | `/api/auth/me` | Valida o token (`Authorization: Bearer <token>`) e devolve a identificação do usuário; 401 se ausente, inválido ou expirado |
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/register -H "Content-Type: application/json" \
@@ -74,6 +75,9 @@ curl -X POST http://localhost:8080/api/auth/register -H "Content-Type: applicati
 
 curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" \
   -d '{"email":"maria@exemplo.com","senha":"Senha@123"}'
+
+# use o accessToken devolvido pelo login
+curl http://localhost:8080/api/auth/me -H "Authorization: Bearer <accessToken>"
 ```
 
 Todos os erros seguem o formato `{ timestamp, status, code, message, path, traceId, errors? }`. Veja a seção 7 do documento de arquitetura.

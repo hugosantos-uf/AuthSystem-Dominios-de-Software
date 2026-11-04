@@ -22,7 +22,7 @@ export interface LoginRequest {
   senha: string;
 }
 
-/** Identificação do usuário autenticado, devolvida no login. */
+/** Identificação do usuário autenticado, devolvida no login e em GET /api/auth/me. */
 export interface UserIdentity {
   id: string;
   nome: string;

@@ -7,6 +7,7 @@ import com.faculdade.authsystem.dto.response.LoginResponse;
 import com.faculdade.authsystem.dto.response.RegisterResponse;
 import com.faculdade.authsystem.exception.EmailAlreadyExistsException;
 import com.faculdade.authsystem.exception.InvalidCredentialsException;
+import com.faculdade.authsystem.exception.UnauthenticatedException;
 import com.faculdade.authsystem.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -58,6 +60,15 @@ public class AuthServiceImpl implements AuthService {
         }
         User user = userRepository.findByEmail(email).orElseThrow(InvalidCredentialsException::new);
         return LoginResponse.bearer(jwtService.generateToken(user), jwtService.getExpirationSeconds(), user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LoginResponse.UserIdentity currentUser(UUID userId) {
+        // Token íntegro e dentro do prazo, mas o usuário pode ter sido removido depois da emissão.
+        return userRepository.findById(userId)
+                .map(LoginResponse.UserIdentity::from)
+                .orElseThrow(UnauthenticatedException::new);
     }
 
     private String normalizeEmail(String email) {

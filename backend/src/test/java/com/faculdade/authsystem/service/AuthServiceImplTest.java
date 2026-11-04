@@ -7,6 +7,7 @@ import com.faculdade.authsystem.dto.response.LoginResponse;
 import com.faculdade.authsystem.dto.response.RegisterResponse;
 import com.faculdade.authsystem.exception.EmailAlreadyExistsException;
 import com.faculdade.authsystem.exception.InvalidCredentialsException;
+import com.faculdade.authsystem.exception.UnauthenticatedException;
 import com.faculdade.authsystem.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,8 +19,10 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -100,5 +103,23 @@ class AuthServiceImplTest {
                 () -> service.login(new LoginRequest("maria@exemplo.com", "errada")));
 
         verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void currentUserReturnsTheIdentityOfTheTokenOwner() {
+        UUID id = UUID.randomUUID();
+        User user = new User("Maria", "maria@exemplo.com", "$2a$hash");
+        ReflectionTestUtils.setField(user, "id", id);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        assertEquals(new LoginResponse.UserIdentity(id, "Maria", "maria@exemplo.com"), service.currentUser(id));
+    }
+
+    @Test
+    void currentUserOfRemovedAccountIsUnauthenticated() {
+        UUID id = UUID.randomUUID();
+        when(userRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(UnauthenticatedException.class, () -> service.currentUser(id));
     }
 }

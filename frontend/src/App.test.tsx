@@ -1,9 +1,9 @@
 import type React from 'react';
-import { render as rtlRender, screen } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from './App';
-import { INVALID_CREDENTIALS, LOGIN_OK, mockFetchNetworkFailure, mockFetchResponse } from './test/fetchMock';
+import { INVALID_CREDENTIALS, LOGIN_OK, UNAUTHORIZED, mockFetchNetworkFailure, mockFetchResponse } from './test/fetchMock';
 import { ToastProvider } from './toast/ToastProvider';
 
 function render(ui: React.ReactElement) {
@@ -129,14 +129,45 @@ describe('Fluxo de cadastro', () => {
 });
 
 describe('Sessão persistida', () => {
-  it('CT-F10: sessão válida no sessionStorage abre direto a tela autenticada', () => {
+  function storeSession() {
     sessionStorage.setItem(
       'authsystem.session',
       JSON.stringify({ ...LOGIN_OK, expiresAt: Date.now() + 60_000 }),
     );
+  }
+
+  it('CT-F10: sessão válida no sessionStorage abre direto a tela autenticada e é confirmada no servidor', async () => {
+    const fetchSpy = mockFetchResponse(200, LOGIN_OK.usuario);
+    storeSession();
     render(<App />);
 
     expect(screen.getByRole('heading', { name: 'Olá, Maria!' })).toBeInTheDocument();
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('http://localhost:8080/api/auth/me');
+    expect(init?.headers).toEqual({ Authorization: `Bearer ${LOGIN_OK.accessToken}` });
+    expect(screen.getByRole('heading', { name: 'Olá, Maria!' })).toBeInTheDocument();
+  });
+
+  it('CT-F13: token recusado pelo servidor encerra a sessão e volta ao login', async () => {
+    mockFetchResponse(401, UNAUTHORIZED);
+    storeSession();
+    render(<App />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sua sessão expirou. Entre novamente.');
+    expect(screen.getByRole('heading', { name: 'Bem-vindo de volta' })).toBeInTheDocument();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('CT-F14: API fora do ar não derruba a sessão local', async () => {
+    const fetchSpy = mockFetchNetworkFailure();
+    storeSession();
+    render(<App />);
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    expect(screen.getByRole('heading', { name: 'Olá, Maria!' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(sessionStorage.length).toBe(1);
   });
 });
 
