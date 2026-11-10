@@ -15,12 +15,15 @@
 Definir a arquitetura e o desenho detalhado de componentes de uma aplicação Web de autenticação, composta por **backend (API REST)**, **banco de dados** e **frontend**. O detalhamento deste documento concentra-se no backend e no banco; o frontend está descrito em [FRONTEND.md](FRONTEND.md). A conformidade com os processos da ISO/IEC 12207 está em [QUALIDADE.md](QUALIDADE.md).
 
 ### 1.2 Escopo
-O sistema expõe **apenas dois endpoints**:
+O sistema expõe **três endpoints**:
 
 | Funcionalidade | Entrada |
 |---|---|
 | Cadastro | nome, e-mail, senha, confirmação de senha |
 | Login | e-mail, senha |
+| Validação do token (`/me`) | cabeçalho `Authorization: Bearer <token>` |
+
+O `/me` não verifica credenciais novas: confere o token emitido no login e devolve a identificação do dono (seção 5.5).
 
 ### 1.3 Decisões de tecnologia
 
@@ -412,6 +415,31 @@ sequenceDiagram
 
 ---
 
+### 5.5 `GET /api/auth/me` — Validação do token
+
+**Request**
+```
+GET /api/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+```
+
+**Resposta 200 OK** — mesma identificação devolvida no login:
+```json
+{ "id": "3f0c5b0e-6a64-4b1e-9d52-2f1f0b6a9c11", "nome": "Maria Silva", "email": "maria@exemplo.com" }
+```
+
+| Status | Código de erro | Quando |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | Token ausente, sem o prefixo `Bearer`, adulterado, assinado com outro segredo, sem assinatura, expirado, ou de usuário que não existe mais |
+
+Como funciona (sem estado no servidor):
+1. O `JwtAuthenticationFilter`, na cadeia do Spring Security, lê o cabeçalho `Authorization`.
+2. O `JwtService.validate` recalcula a assinatura HS256 com o `JWT_SECRET` e confere o `exp`. Nenhuma consulta a sessão.
+3. Token válido → o `sub` (UUID do usuário) vira o principal da requisição. Token inválido → a requisição segue sem autenticação e o `RestAuthenticationEntryPoint` responde 401.
+4. O `AuthController.me` recebe o UUID (`@AuthenticationPrincipal`) e o `AuthService.currentUser` busca o usuário para montar a identificação.
+
+Token inválido em rota pública (cadastro, login) é ignorado: não impede o acesso.
+
 ## 6. Modelo de dados
 
 ```mermaid
@@ -511,7 +539,8 @@ classDiagram
 | Tema | Decisão |
 |---|---|
 | Hash de senha | `BCryptPasswordEncoder` (strength 10–12) |
-| Rotas | `/api/auth/register`, `/api/auth/login`, `/swagger-ui/**`, `/swagger-ui.html`, `/v3/api-docs/**` públicas; qualquer outra exige autenticação |
+| Rotas | `/api/auth/register`, `/api/auth/login`, `/swagger-ui/**`, `/swagger-ui.html`, `/v3/api-docs/**` públicas; qualquer outra (incluindo `/api/auth/me`) exige `Authorization: Bearer` com JWT válido |
+| Validação do token | `JwtAuthenticationFilter` confere assinatura e `exp` a cada requisição; token sem assinatura (`alg: none`) é recusado |
 | Sessão | `SessionCreationPolicy.STATELESS` |
 | CSRF | Desabilitado (API stateless, sem cookies de sessão) |
 | Token | JWT HS256; segredo com no mínimo 256 bits vindo de variável de ambiente; expiração padrão 1 h |
@@ -598,9 +627,10 @@ Casos mínimos: cadastro válido; senha ≠ confirmação; senha fraca; e-mail i
 | ADR-08 | Login devolve também `usuario` (id, nome, e-mail) | Cliente decodificar o JWT | Atende ao enunciado; o cliente não depende do formato interno do token |
 | ADR-09 | Frontend SPA em React + TypeScript, sem biblioteca de rotas | Angular, Vue, React Router | Três telas apenas; tipagem estática do contrato; menos dependências |
 | ADR-10 | Sessão do frontend em `sessionStorage` | `localStorage`, cookie | Some ao fechar a aba; sem backend de sessão (RNF04) |
+| ADR-11 | Token validado por filtro do Spring Security; `GET /api/auth/me` devolve o dono do token | Validar o token dentro de cada controller; lista de sessões no servidor | Segurança em ponto único; continua sem estado (RNF04) |
 
 ### Evoluções possíveis
-Rate limiting/bloqueio por tentativas, refresh token, verificação de e-mail, recuperação de senha, papéis (RBAC), endpoint `/me` protegido, observabilidade (Actuator, métricas), pipeline CI.
+Rate limiting/bloqueio por tentativas, refresh token, revogação de tokens antes do `exp`, verificação de e-mail, recuperação de senha, papéis (RBAC), observabilidade (Actuator, métricas), pipeline CI.
 
 ---
 

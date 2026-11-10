@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ApiError } from './api/ApiError';
+import { me } from './api/authApi';
+import { messageFor } from './api/errorMessages';
 import type { LoginResponse, RegisterResponse } from './api/types';
 import { AuthLayout } from './components/AuthLayout';
 import { HomePage } from './pages/HomePage';
@@ -10,9 +13,27 @@ import { clearSession, createSession, loadSession, saveSession, type Session } f
 type View = { name: 'login'; email?: string } | { name: 'register' };
 
 export function App() {
-  const [session, setSession] = useState<Session | null>(() => loadSession());
+  const [restoredSession] = useState<Session | null>(loadSession);
+  const [session, setSession] = useState<Session | null>(restoredSession);
   const [view, setView] = useState<View>({ name: 'login' });
   const toast = useToast();
+
+  // Sessão vinda do sessionStorage: confirma com o servidor (GET /api/auth/me) que o token ainda vale.
+  // Só um 401 encerra a sessão; se a API estiver fora do ar, a sessão local é mantida.
+  useEffect(() => {
+    if (!restoredSession) return;
+    let active = true;
+    me(restoredSession.accessToken).catch((error: unknown) => {
+      if (!active || !(error instanceof ApiError) || error.status !== 401) return;
+      clearSession();
+      setSession(null);
+      setView({ name: 'login' });
+      toast.error(messageFor(error));
+    });
+    return () => {
+      active = false;
+    };
+  }, [restoredSession, toast]);
 
   function handleAuthenticated(response: LoginResponse) {
     const created = createSession(response);

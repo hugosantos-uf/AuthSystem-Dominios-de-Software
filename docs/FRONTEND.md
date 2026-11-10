@@ -69,7 +69,7 @@ flowchart LR
     class H ok
 ```
 
-Ao abrir a aplicação, se houver sessão válida (não expirada) no `sessionStorage`, a tela "Autenticado" é exibida direto.
+Ao abrir a aplicação, se houver sessão válida (não expirada) no `sessionStorage`, a tela "Autenticado" é exibida direto e o token é confirmado no servidor com `GET /api/auth/me`. Se a API responder 401 (token inválido ou expirado), a sessão é descartada e o usuário volta ao login com o aviso "Sua sessão expirou". Se a API estiver fora do ar, a sessão local é mantida.
 
 ## 5. Tratamento de erros
 
@@ -89,7 +89,7 @@ A exceção da API (`ApiError`) é capturada na página e exibida num **toast** 
 | Tema | Decisão |
 |---|---|
 | Senha | Nunca guardada fora do estado do formulário; limpa após login com falha; nunca registrada em log |
-| Sessão | `sessionStorage` (some ao fechar a aba); descartada ao expirar (`expiresIn`) ou ao sair (ADR-10) |
+| Sessão | `sessionStorage` (some ao fechar a aba); descartada ao expirar (`expiresIn`), ao sair ou quando `GET /api/auth/me` responde 401 (ADR-10, ADR-11) |
 | XSS | Todo conteúdo é renderizado pelo React, que escapa texto; não há `dangerouslySetInnerHTML` |
 | CORS | O servidor de desenvolvimento roda na porta 3000, a origem liberada pela API |
 | Enumeração de usuários | A tela de login não diferencia e-mail inexistente de senha errada |

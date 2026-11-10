@@ -3,6 +3,7 @@ import { ApiError, NETWORK_ERROR } from './ApiError';
 /** Mensagens exibidas ao usuário, escolhidas pelo código de erro da API (ADR-06). */
 const MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: 'E-mail ou senha inválidos.',
+  UNAUTHORIZED: 'Sua sessão expirou. Entre novamente.',
   EMAIL_ALREADY_EXISTS: 'Este e-mail já está cadastrado.',
   VALIDATION_ERROR: 'Dados inválidos. Corrija os campos indicados.',
   [NETWORK_ERROR]: 'Não foi possível conectar ao servidor. Verifique se a API está em execução.',

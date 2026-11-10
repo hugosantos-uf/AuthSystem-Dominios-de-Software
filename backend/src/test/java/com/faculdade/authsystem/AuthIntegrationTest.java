@@ -1,5 +1,7 @@
 package com.faculdade.authsystem;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -22,6 +24,7 @@ import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,6 +50,9 @@ class AuthIntegrationTest {
     @Autowired
     private JdbcTemplate jdbc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     private static String register(String nome, String email, String senha, String confirmar) {
         return """
                 {"nome":"%s","email":"%s","senha":"%s","confirmarSenha":"%s"}""".formatted(nome, email, senha, confirmar);
@@ -70,7 +76,7 @@ class AuthIntegrationTest {
         assertNotEquals("Senha@123", hash);
         assertEquals(true, hash.startsWith("$2"));
 
-        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+        String loginJson = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(login("fluxo@exemplo.com", "Senha@123")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
@@ -78,7 +84,21 @@ class AuthIntegrationTest {
                 .andExpect(jsonPath("$.expiresIn").value(3600))
                 .andExpect(jsonPath("$.usuario.id").exists())
                 .andExpect(jsonPath("$.usuario.nome").value("Maria Silva"))
-                .andExpect(jsonPath("$.usuario.email").value("fluxo@exemplo.com"));
+                .andExpect(jsonPath("$.usuario.email").value("fluxo@exemplo.com"))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+
+        JsonNode loginBody = objectMapper.readTree(loginJson);
+        String token = loginBody.get("accessToken").asText();
+        String userId = loginBody.get("usuario").get("id").asText();
+
+        mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId))
+                .andExpect(jsonPath("$.email").value("fluxo@exemplo.com"));
+
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
     @Test

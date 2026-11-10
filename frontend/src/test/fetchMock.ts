@@ -26,3 +26,12 @@ export const INVALID_CREDENTIALS = {
   path: '/api/auth/login',
   traceId: 'abc123',
 };
+
+export const UNAUTHORIZED = {
+  timestamp: '2026-11-02T12:00:00Z',
+  status: 401,
+  code: 'UNAUTHORIZED',
+  message: 'Autenticação necessária.',
+  path: '/api/auth/me',
+  traceId: 'def456',
+};
